@@ -2,9 +2,10 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../async"
 		}
 	],
-	"settings": {
-		"files.associations": {}
-	}
+	"settings": {}
 }

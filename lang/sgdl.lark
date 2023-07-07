@@ -1,0 +1,42 @@
+%import common.INT
+%import common.SIGNED_NUMBER
+%import common.ESCAPED_STRING
+%import common.CNAME
+%import common.CPP_COMMENT
+%import common.WS
+%ignore WS
+%ignore CPP_COMMENT
+
+r_tag_in: "in"
+r_tag_out: "out"
+r_tag_var: "var"
+r_tag_const: "const"
+r_tag_mod: "mod"
+r_tag_decl: "decl"
+r_tag_impl: "impl"
+
+r_literal: CNAME "(" INT ")"
+r_mod_reference: CNAME "." CNAME*
+r_var_reference: CNAME
+r_namespace: CNAME "::" CNAME
+
+r_op_args: _expression ("," _expression)*
+r_op: CNAME "(" r_op_args* ")"
+
+_expression: r_mod_reference | r_var_reference | r_op | r_literal | r_namespace
+
+r_val_size: ["[" INT "]"]
+r_val_expr: ["=" _expression]
+_val_tag: r_tag_in | r_tag_out | r_tag_var | r_tag_const
+r_val: _val_tag CNAME CNAME r_val_size r_val_expr ";"
+
+r_mod_connection: "." CNAME "=" _expression
+r_mod_connections: "=" "{" r_mod_connection ("," r_mod_connection)* "}" ";"
+r_mod: r_tag_mod CNAME CNAME r_mod_connections
+
+_mod_decl_item: r_val | r_mod
+r_mod_decl_items: "{" _mod_decl_item+ "}"
+_mod_decl_tag: r_tag_decl | r_tag_impl
+r_mod_decl: _mod_decl_tag CNAME r_mod_decl_items ";"
+
+start: r_mod_decl+

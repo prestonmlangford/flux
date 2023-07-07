@@ -1,8 +1,13 @@
 
-def c_repr_expr(expr):
-    if expr["tag"] == "ref":
+def c_repr_expr_simple(expr):
+    tag = expr["tag"]
+
+    if tag == "ref":
+        # PMLFIXME this thinks constant values are references
+        # the desiged behavior will be to treat them as a namespace value
         return "self->" + ".".join(expr["path"])
-    elif expr["tag"] == "const":
+
+    elif tag == "literal":
         type = expr["type"]
         val = expr["val"]
 
@@ -18,61 +23,126 @@ def c_repr_expr(expr):
                 post += "LL"
 
             return f"{val}{post}"
+
+    elif tag == "namespace":
+        mod = expr["mod"].upper()
+        name = expr["name"]
+        
+        return f"{mod}_{name}"
+
     else:
         return "PMLFIXME"
 
-def c_repr_process_func(module):
-    s = ""
-    for var in module["vars"]:
-        if (var["tag"] == "module") or (var["tag"] == "block"):
-            tag = var["tag"]
-            name = var["name"]
-            type = var["type"]
-            s += f"static void process_{name}(struct {type}* self)\n"
-            s += "{\n"
-            s += f"    struct {type}* {name} = &(self->{name});\n\n"
-            for con in var["cons"]:
-                field = con["name"]
-                expr = c_repr_expr(con["expr"])
-                s += f"    {name}->{field} = {expr};\n"
-            
-            s += "\n"
-            s += f"    {tag}_{type}({name});\n"
-            s += "}\n\n"
-    
-    return s
+def c_repr_eval_op(module,path,name_var,op):
+    type_self = module["type"]
+    type_var = "PMLFIXME" # PMLFIXME the type needs to be determined from the op and it's arguments
+    name_op = op["name"]
 
-def c_repr_module_func(module):
-    type = module["type"]
-    s = f"void module_{type}(struct {type}* self)\n"
+    decls = ""
+    impls = ""
+    fname = f"eval_{name_var}"
+    body = ""
+
+    for idx in path:
+        fname += f"_{idx}"
+
+    body += f"static {type_var} {fname}(struct {type_self}* self)\n"
+    body += "{\n"
+    body += f"    {type_var} argv[] = \n"
+    body +=  "    {\n"
+    for idx,arg in enumerate(op["args"]):
+        decl, impl, rhs = c_repr_expr(module, path + [idx], name_var, arg)
+        decls += decl
+        impls += impl
+        body += f"        {rhs},\n"
+
+    body +=  "    };\n"
+    body +=  "    size_t argc = COUNT(argv);\n\n"
+    body += f"    return {type_var}_{name_op}(argc, argv);\n"
+    body += "}\n\n"
+
+    decls += f"static {type_var} {fname}(struct {type_self}* self);\n"
+    impls += body
+
+    return decls, impls, (fname + "(self)")
+
+def c_repr_expr(module,path,name_var,expr):
+    decls = ""
+    impls = ""
+    
+    tag = expr["tag"]
+    
+    if tag == "op":
+        decls,impls,rhs = c_repr_eval_op(module,path,name_var,expr)
+    else:
+        rhs = c_repr_expr_simple(expr)
+
+    return decls, impls, rhs
+
+def c_repr_process_mod(module,var):
+    name_mod = var["name"]
+    type_self = module["type"]
+    type_mod = var["type"]
+    
+    decls = ""
+    impls = ""
+    fname = f"process_{name_mod}"
+    body = ""
+
+    body += f"static void {fname}(struct {type_self}* self)\n"
+    body += "{\n"
+    body += f"    struct {type_mod}* {name_mod} = &(self->{name_mod});\n\n"
+    for con in var["cons"]:
+        name_con = con["name"]
+        name_var = f"{name_mod}_{name_con}"
+        expr = con["expr"]
+        decl,impl,rhs = c_repr_expr(module,[],name_var,expr)
+        decls += decl
+        impls += impl
+        body += f"    {name_mod}->{name_con} = {rhs};\n"
+
+    body += "\n"
+    body += f"    module_{type_mod.lower()}({name_mod});\n"
+    body += "}\n\n"
+
+    decls += f"static void {fname}(struct {type_self}* self);\n"
+    impls += body
+
+    return decls, impls, fname
+
+def c_repr_module_impl(module):
+    decls = ""
+    impls = ""
+    body = ""
+    for var in module["vars"]:
+        vname = var["name"]
+        tag = var["tag"]
+        if tag == "mod":
+            decl,impl,fname = c_repr_process_mod(module,var)
+            decls += decl
+            impls += impl
+            body += f"    {fname}(self);\n"
+        elif (tag == "var") or (tag == "out"):
+            decl,impl,rhs = c_repr_expr(module,[],var["name"],var["expr"])
+            decls += decl
+            impls += impl
+            body += f"    self->{vname} = {rhs};\n"
+
+    type_mod = module["type"]
+    s = f"#include \"{type_mod.lower()}.h\"\n\n"
+    s += decls
+    s += "\n"
+    s += impls
+    s += f"void module_{type_mod.lower()}(struct {type_mod}* self)\n"
     s += "{\n"
-    for var in module["vars"]:
-        if var["tag"] == "in": continue
-        name = var["name"]
-        s += f"    process_{name}(self);\n"
+    s += body
     s += "}\n\n"
-    return s
 
-def c_repr_type(t):
-    base_types = {
-        "u8" : "uint8_t",
-        "i8" : "int8_t",
-        "u16" : "uint16_t",
-        "i16" : "int16_t",
-        "u32" : "uint32_t",
-        "i32" : "int32_t",
-        "u64" : "uint64_t",
-        "i64" : "int64_t"
-    }
-    
-    try:
-        return base_types[t]
-    except:
-        return t
+    return s
 
 def c_repr_var_decl(var):
     tag = var["tag"]
-    type = c_repr_type(var["type"])
+    type = var["type"]
     name = var["name"]
     try:
         size = var["size"]
@@ -81,7 +151,7 @@ def c_repr_var_decl(var):
 
     s = ""
     
-    if tag == "block" or tag == "module":
+    if tag == "mod":
         s += "struct "
     
     s += f"{type} {name}"
@@ -124,6 +194,19 @@ def c_repr_module_struct(module):
         decl = c_repr_var_decl(output)
         s += f"    {decl};\n"
     
-    s += "}\n\n"
+    s += "};\n\n"
     
+    return s
+
+def c_repr_module_header(module):
+    type = module["type"]
+    header = type.upper()
+    s =  f"#ifndef {header}_H\n"
+    s += f"#define {header}_H\n"
+    s += "#include <types.h>\n\n"
+
+    s += c_repr_module_struct(module)
+
+    s += f"#endif /* {header}_H */\n"
+
     return s

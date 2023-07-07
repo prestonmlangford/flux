@@ -1,1 +1,1 @@
-python lang/main.py $1
+python lang/main.py modules/thermal_monitor.m

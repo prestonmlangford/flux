@@ -4,6 +4,10 @@
 #include "types.h"
 #include "array.h"
 
-bool op_and(bool argv[], size_t argc);
+boolean boolean_and(size_t argc, boolean argv[]);
+boolean u8_and(size_t argc, boolean argv[]);
+boolean u16_and(size_t argc, boolean argv[]);
+boolean u32_and(size_t argc, boolean argv[]);
+boolean u64_and(size_t argc, boolean argv[]);
 
 #endif /* AND_H */

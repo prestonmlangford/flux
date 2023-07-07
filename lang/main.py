@@ -1,21 +1,47 @@
+import sys
+import os.path
 from lark import Lark
-from dparse import Parser
-from emit import *
+from parser import Parser
+from phases import *
+import json
 
-f = open("landing.vs",'r')
-src = f.read()
-f.close()
+def read(path):
+    f = open(path,'r')
+    s = f.read()
+    f.close()
+    return s
 
-f = open("grammar.lark",'r')
-grammer = f.read()
-f.close()
+def write(path,s):
+    f = open(path,'w')
+    f.write(s)
+    f.close()
 
-parser = Lark(grammer)
+src = read(sys.argv[1])
+grammar = read("lang/sgdl.lark")
+
+parser = Lark(grammar)
 tree = parser.parse(src)
-decls = Parser().transform(tree)
+# print(tree.pretty())
+ast = Parser().transform(tree)
+top = {}
+top["tag"] = "top"
+top["ast"] = ast
+top["decls"] = {}
+top["impls"] = []
 
-for decl in decls:
-    if decl["tag"] == "module":
-        print(c_repr_process_func(decl))
-        print(c_repr_module_func(decl))
-        print(c_repr_module_struct(decl))
+phases = [
+    Ban_Decl_Expressions,
+    Ban_Input_Expressions,
+    Build_Decls,
+    Build_Decl_IO,
+    Build_Impl_Scope,
+    Build_Module_Connections
+]
+
+for phase in phases:
+    try:
+        phase.go(top)
+    except GrammarError as e:
+        print(e)
+
+print(json.dumps(top,indent=4))
