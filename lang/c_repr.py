@@ -1,192 +1,178 @@
+from walk import Walker
 
+class Emit_C_Repr(Walker):
+    def go(top):
+        w = Emit_C_Repr()
 
-def c_repr_expr(expr):
-    tag = expr["tag"]
+        w.eval_name = ""
+        w.expr = []
 
-    if tag == "ref":
-        # PMLFIXME this thinks constant values are references
-        # the desiged behavior will be to treat them as a namespace value
-        return "self->" + ".".join(expr["path"])
+        w.walk(top)
+    
+    def set_path_depth(self):
+        self.path_depth = len(self.get_path())
+    
+    def get_path_depth(self):
+        return self.path_depth
+    
+    def pop_expr(self):
+        return self.expr.pop()
 
-    elif tag == "literal":
-        type = expr["type"]
-        val = expr["val"]
+    def push_expr(self, expr):
+        self.expr.append(expr)
+    
+    def visit_decl(self, node):
+        # decl info only used to verify grammar rules are met
+        pass
 
-        if type == "bool":
-            return "true" if val == 1 else "false"
-        else:
-            post = ""
+    def visit_impl(self, impl):
+        self.impl_type = impl["type"]
+        header = self.impl_type.upper()
+        file = self.impl_type.lower()
 
-            if "u" in type:
-                post = "U"
-
-            if "64" in type:
-                post += "LL"
-
-            return f"{val}{post}"
-
-    elif tag == "namespace":
-        mod = expr["mod"].upper()
-        name = expr["name"]
+        self.static_functions = ""
+        self.static_declarations = ""
+        self.module_function_body = ""
+        self.struct_decl = f"struct {self.impl_type}\n{{\n"
+        self.walk(impl)
         
-        return f"{mod}_{name}"
-    
-    elif tag == "op":
-        name = expr["name"]
-        args = expr["args"]
+        m = ""
+        m += f"void module_{file}(struct {self.impl_type}* self)\n"
+        m += "{\n"
+        m += self.module_function_body
+        m += "}\n\n"
         
-        return f"{name}({args})"
-    else:
-        return "PMLFIXME"
+        header = self.impl_type.upper()
+        self.struct_decl += "};\n\n"
+        h =  f"#ifndef {header}_H\n"
+        h += f"#define {header}_H\n"
+        h += "#include \"types.h\"\n\n"
+        h += self.struct_decl
+        h += f"#endif /* {header}_H */\n"
+        
+        f = open(f"out/{file}.c",'w')
+        f.write(f"#include \"{file}.h\"\n")
+        f.write(f"#include \"ops.h\"\n\n")
+        f.write(self.static_declarations + "\n")
+        f.write(self.static_functions)
+        f.write(m)
+        f.close()
 
-def c_repr_eval_op(module,path,var):
-    type_self = module["type"]
-    eval_name = var["name"]
-    
-    return ""
+        f = open(f"out/{file}.h",'w')
+        f.write(h)
+        f.close()
 
-def c_repr_process_mod(module,var):
-    name = var["name"]
-    type_self = module["type"]
-    type_mod = var["type"]
-    
-    s = ""
-    for con in var["cons"]:
-        expr = con["expr"]
-        tag = expr["tag"]
-        if tag == "op":
-            s += c_repr_eval_op(module,[],var)
+    def eval_func_name(self):
+        s = f"eval_{self.eval_name}"
+        path = self.get_path()
+        depth = self.get_path_depth()
+        for idx in path[depth:]:
+            s += f"_{idx + 1}"
+        return s
 
-    s += f"static void process_{name}(struct {type_self}* self)\n"
-    s += "{\n"
-    s += f"    struct {type_mod}* {name} = &(self->{name});\n\n"
-    for con in var["cons"]:
-        field = con["name"]
-        expr = c_repr_expr(con["expr"])
-        s += f"    {name}->{field} = {expr};\n"
-    
-    s += "\n"
-    s += f"    module_{type}({name});\n"
-    s += "}\n\n"
-    
-    return s
+    def handle_var_out(self, var):
+        var_name = var["name"]
+        var_type = var["type"]
+        self.eval_name = var_name
+        self.set_path_depth()
+        self.walk(var)
+        expr = self.pop_expr()
+        s = f"    self->{var_name} = {expr};\n"
+        self.module_function_body += s
+        
+        self.struct_decl += f"    {var_type} {var_name};\n"
 
-def c_repr_static_module_funcs(module):
-    s = ""
-    for var in module["vars"]:
-        tag = var["tag"]
-        if tag == "mod":
-            s += c_repr_process_mod(module,var)
-        elif (tag == "var") or (tag == "out"):
-            if var["expr"]["tag"] == "op":
-                s += c_repr_eval_op(module,[],var)
-    return s
+    def visit_in(self, var):
+        var_name = var["name"]
+        var_type = var["type"]
+        self.struct_decl += f"    {var_type} {var_name};\n"
 
-def c_repr_public_module_func(module):
-    type = module["type"]
-    s = f"void module_{type.lower()}(struct {type}* self)\n"
-    s += "{\n"
-    for var in module["vars"]:
-        tag = var["tag"]
-        name = var["name"]
-        if tag == "mod":
-            s += f"    process_{name}(self);\n"
-        elif (tag == "var") or (tag == "out"):
-            s += f"    self->{name} = eval_{name}(self);\n"
-    s += "}\n\n"
-    return s
+    def visit_var(self, var):
+        self.handle_var_out(var)
 
-def c_repr_module_implementation(module):
-    header = module["type"].lower()
-    s = f"#include \"{header}.h\"\n\n"
-    s += c_repr_static_module_funcs(module)
-    s += c_repr_public_module_func(module)
-    return s
+    def visit_out(self, var):
+        self.handle_var_out(var)
 
-def c_repr_type(t):
-    base_types = {
-        "u8" : "uint8_t",
-        "i8" : "int8_t",
-        "u16" : "uint16_t",
-        "i16" : "int16_t",
-        "u32" : "uint32_t",
-        "i32" : "int32_t",
-        "u64" : "uint64_t",
-        "i64" : "int64_t"
-    }
-    
-    try:
-        return base_types[t]
-    except:
-        return t
+    def visit_mod(self, mod):
+        mod_name = mod["name"]
+        mod_type = mod["type"]
+        s = f"    process_{mod_name.lower()}(self);\n"
+        self.module_function_body += s
+        
+        self.mod_name = mod_name
+        self.connections = []
+        self.walk(mod)
+        
+        proto = f"static void process_{mod_name}(struct {self.impl_type}* self)"
 
-def c_repr_var_decl(var):
-    tag = var["tag"]
-    type = c_repr_type(var["type"])
-    name = var["name"]
-    try:
-        size = var["size"]
-    except:
-        size = None
+        s  = f"{proto}\n"
+        s +=  "{\n"
+        s += f"    struct {mod_type}* {mod_name} = &(self->{mod_name});\n\n"
+        for name, expr in self.connections:
+            s += f"    {mod_name}->{name} = {expr};\n"
+            
+        s +=  "\n"
+        s += f"    module_{mod_type.lower()}({mod_name});\n"
+        s +=  "}\n\n"
+        
+        self.static_functions += s
+        self.static_declarations += f"{proto};\n"
+        self.struct_decl += f"    struct {mod_type} {mod_name};\n"
 
-    s = ""
-    
-    if tag == "block" or tag == "module":
-        s += "struct "
-    
-    s += f"{type} {name}"
+    def visit_con(self, con):
+        con_name = con["name"]
+        self.eval_name = f"{self.mod_name}_{con_name}"
+        self.set_path_depth()
+        self.walk(con)
+        expr = self.pop_expr()
+        self.connections.append((con_name,expr))
 
-    if size:
-        s += f"[{size}]"
+    def visit_literal(self, literal):
+        self.push_expr(str(literal["val"]))
 
-    return s
-
-def c_repr_module_struct(module):
-    inputs = []
-    states = []
-    outputs = []
-    
-    for var in module["vars"]:
-        tag = var["tag"]
-
-        if tag == "in":
-            inputs.append(var)
-        elif tag == "out":
-            outputs.append(var)
+    def visit_ref(self, ref):
+        name = ref["name"]
+        if "::" in name:
+            self.push_expr(f"PMLFXIME {name}")
         else:
-            states.append(var)
+            self.push_expr(f"self->{name}")
 
-    type = module["type"]
-    s = f"struct {type}\n"
-    s += "{\n"
-    s += "\n    /* inputs */\n"
-    for input in inputs:
-        decl = c_repr_var_decl(input)
-        s += f"    {decl};\n"
+    def visit_op(self, op):
+        before = len(self.expr)
+        self.walk(op)
+        after = len(self.expr)
 
-    s += "\n    /* states */\n"
-    for state in states:
-        decl = c_repr_var_decl(state)
-        s += f"    {decl};\n"
+        argv = []
+        for _ in range(after - before):
+            argv.append(self.expr.pop())
+        
+        op_name = op["name"]
+        op_type = op["type"]
+        op_func = f"{op_type}_{op_name}"
 
-    s += "\n    /* outputs */\n"
-    for output in outputs:
-        decl = c_repr_var_decl(output)
-        s += f"    {decl};\n"
-    
-    s += "};\n\n"
-    
-    return s
+        if op["nary"]:    
+            e = self.eval_func_name()
+            self.push_expr(f"{e}(self)")
 
-def c_repr_module_header(module):
-    type = module["type"]
-    header = type.upper()
-    s =  f"#ifndef {header}_H\n"
-    s += f"#define {header}_H\n"
-    s += "#include <stdint.h>\n\n"
+            arg_type = op["arg_type"]
+            proto = f"static {op_type} {e}(struct {self.impl_type}* self)"
+            s  = f"{proto}\n"
+            s +=  "{\n"
+            s += f"    {arg_type} argv[] =\n"
+            s +=  "    {\n"
+            for arg in reversed(argv):
+                s += f"        {arg},\n"
+            s +=  "    };\n"
+            s +=  "    size_t argc = LEN(argv);\n\n"
+            s += f"    return {op_func}(argc, argv);\n"
+            s += "}\n\n"
+            self.static_functions += s
 
-    s += c_repr_module_struct(module)
+            s = f"{proto};\n"
+            self.static_declarations += s
 
-    s += f"#endif /* {header}_H */\n"
-
-    return s
+        else:
+            args = ""
+            for arg in reversed(argv):
+                args += f"{arg},"
+            self.push_expr(f"{op_func}({args[:-1]})")

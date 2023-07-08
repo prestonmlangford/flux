@@ -31,23 +31,20 @@ class Parser(Transformer):
 
     def r_mod_reference(self,items):
         return {
-            "tag"  : "mod_ref",
-            "module" : str(items[0]),
-            "output" : str(items[1])
+            "tag"  : "ref",
+            "name" : f"{items[0]}.{items[1]}"
         }
-
 
     def r_var_reference(self,items):
         return {
-            "tag"  : "var_ref",
-            "name" : str(items[0])
+            "tag"  : "ref",
+            "name" : f"{items[0]}"
         }
 
     def r_namespace(self,items):
         return {
-            "tag"  : "namespace",
-            "mod" : str(items[0]),
-            "name" : str(items[1])
+            "tag"  : "ref",
+            "name" : f"{items[0]}::{items[1]}"
         }
 
     def r_op_args(self,items):
@@ -88,7 +85,7 @@ class Parser(Transformer):
 
     def r_mod_connection(self,items):
         return {
-            "tag"  : "connect",
+            "tag"  : "con",
             "name" : str(items[0]),
             "expr" : items[1]
         }

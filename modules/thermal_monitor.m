@@ -48,8 +48,8 @@ impl Clock
     in boolean reset;
     in u64 period_in_ticks;
 
-    var u64 half_period = div(period_in_ticks,i64(2));
-    var u64 ticks_now = Clock::TIME_BASE_REG;
+    var u64 half_period = div(period_in_ticks,u64(2));
+    var u64 ticks_now = TIME_BASE_REG;
     var u64 half_period_rem = rem(ticks_now,half_period);
     var u64 period_rem = rem(ticks_now,period_in_ticks);
 
@@ -137,7 +137,7 @@ impl Sbm_Thermal_Monitor
 
     mod Pulse poll_100hz = {
         .reset = reset,
-        .period_ms = Sbm_Thermal_Monitor::STATUS_PERIOD
+        .period_ms = STATUS_PERIOD
     };
 
     mod Sbm thermal = {

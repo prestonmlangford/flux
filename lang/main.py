@@ -3,6 +3,7 @@ import os.path
 from lark import Lark
 from parser import Parser
 from phases import *
+from c_repr import *
 import json
 
 def read(path):
@@ -26,16 +27,13 @@ ast = Parser().transform(tree)
 top = {}
 top["tag"] = "top"
 top["ast"] = ast
-top["decls"] = {}
-top["impls"] = []
 
 phases = [
-    Ban_Decl_Expressions,
-    Ban_Input_Expressions,
-    Build_Decls,
-    Build_Decl_IO,
+    Build_Decl_Scope,
     Build_Impl_Scope,
-    Build_Module_Connections
+    Validate_References,
+    Infer_Op_Types,
+    Emit_C_Repr
 ]
 
 for phase in phases:
@@ -44,4 +42,4 @@ for phase in phases:
     except GrammarError as e:
         print(e)
 
-print(json.dumps(top,indent=4))
+# print(json.dumps(top,indent=4))
