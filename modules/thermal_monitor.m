@@ -49,7 +49,7 @@ impl Clock
     in u64 period_in_ticks;
 
     var u64 half_period = div(period_in_ticks,u64(2));
-    var u64 ticks_now = TIME_BASE_REG;
+    var u64 ticks_now = this::TIME_BASE_REG;
     var u64 half_period_rem = rem(ticks_now,half_period);
     var u64 period_rem = rem(ticks_now,period_in_ticks);
 
@@ -117,7 +117,7 @@ impl Pulse
     out bool signal = edge.output;
 };
 
-decl Sbm_Thermal_Monitor
+decl Thermal_Monitor
 {
     const u32 THERMAL_REG_MASK;
     const f32 TEMPERATURE_SCALE;
@@ -127,17 +127,17 @@ decl Sbm_Thermal_Monitor
     out f32 temperature;
 };
 
-impl Sbm_Thermal_Monitor
+impl Thermal_Monitor
 {
     const u32 THERMAL_REG_MASK = u32(12345);
     const f32 TEMPERATURE_SCALE = f32(123);
     const f32 STATUS_PERIOD = u64(10);
-    
+
     in bool reset;
 
     mod Pulse poll_100hz = {
         .reset = reset,
-        .period_ms = STATUS_PERIOD
+        .period_ms = this::STATUS_PERIOD
     };
 
     mod Sbm thermal = {
@@ -146,11 +146,11 @@ impl Sbm_Thermal_Monitor
         .read = poll_100hz.signal
     };
 
-    var u32 temperature_bits = and(thermal.rval,Sbm_Thermal_Monitor::THERMAL_REG_MASK);
+    var u32 temperature_bits = and(thermal.rval,this::THERMAL_REG_MASK);
     var f32 temperature_prescaled = cast(temperature_bits);
 
     mod Hysteresis hyst = {
-        .input = mul(temperature_prescaled,Sbm_Thermal_Monitor::TEMPERATURE_SCALE),
+        .input = mul(temperature_prescaled,this::TEMPERATURE_SCALE),
         .tolerance = f32(5)
     };
 

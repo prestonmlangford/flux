@@ -3,6 +3,8 @@
 
 #include <stdlib.h>
 
+#define CONST(x) {.value = (x), .valid = true}
+
 typedef enum {false,true} bool;
 
 #define SIGNAL(name,ctype) typedef struct name {ctype value;bool valid;} name
@@ -20,5 +22,7 @@ SIGNAL(f32, float);
 SIGNAL(f64, double);
 
 SIGNAL(boolean, bool);
+
+
 
 #endif /* TYPES_H */

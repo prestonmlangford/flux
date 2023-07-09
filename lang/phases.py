@@ -58,21 +58,24 @@ class Build_Impl_Scope(Walker):
         pass
 
     def visit_impl(self, impl):
-        self.scope = {**self.consts}
+        self.mod_type = impl["type"]
+        self.scope = {}
         impl["_scope"] = self.scope
         self.walk(impl)
-    
+
     def visit_in(self, var):
         name = var["name"]
         self.scope[name] = var
-    
+
     def visit_var(self, var):
         name = var["name"]
         self.scope[name] = var
 
     def visit_const(self, var):
         name = var["name"]
-        self.scope[name] = var
+        key = f"{self.mod_type}::{name}"
+        var["public"] = key in self.consts
+        self.scope[key] = var
 
     def visit_mod(self, mod):
         self.mod_type = mod["type"]
@@ -103,7 +106,7 @@ class Build_Impl_Scope(Walker):
 class Validate_References(Walker):
     def go(top):
         w = Validate_References()
-        w.global_scope = top["_consts"]
+        w.public_consts = top["_consts"]
         w.walk(top)
 
     def visit_decl(self, node):
@@ -111,22 +114,54 @@ class Validate_References(Walker):
         pass
 
     def visit_impl(self, impl):
-        self.local_scope = impl["_scope"]
+        self.mod_type = impl["type"]
+        self.scope = impl["_scope"]
         self.walk(impl)
 
-    def visit_ref(self, ref):
+    def visit_var_ref(self, ref):
         name = ref["name"]
 
         try:
-            var = self.global_scope[name]
+            var = self.scope[name]
         except:
-            try:
-                var = self.local_scope[name]
-            except:
-                raise GrammarError(f"Undeclared reference to {name}")
+            raise GrammarError(f"Undeclared reference to {name}")
 
         ref["type"] = var["type"]
         ref["size"] = var["size"]
+
+    def visit_mod_ref(self, ref):
+        module = ref["module"]
+        name = ref["name"]
+        key = f"{module}.{name}"
+
+        try:
+            var = self.scope[key]
+        except:
+            raise GrammarError(f"Undeclared reference to {key}")
+
+        ref["type"] = var["type"]
+        ref["size"] = var["size"]
+
+    def visit_const_ref(self, ref):
+        module = ref["module"]
+        if module == "this":
+            module = self.mod_type
+            ref["module"] = module
+
+        name = ref["name"]
+        key = f"{module}::{name}"
+
+        try:
+            var = self.scope[key]
+        except:
+            try:
+                var = self.public_consts[key]
+            except:
+                raise GrammarError(f"Undeclared reference to {key}")
+
+        ref["type"] = var["type"]
+        ref["size"] = var["size"]
+
 
 class Infer_Op_Types(Walker):
     """
