@@ -3,10 +3,9 @@ from walk import Walker
 class Emit_C_Repr(Walker):
     def go(top):
         w = Emit_C_Repr()
-
+        w.consts = top["_consts"]
         w.eval_name = ""
         w.expr = []
-        w.init = []
 
         w.walk(top)
     
@@ -21,6 +20,7 @@ class Emit_C_Repr(Walker):
         pass
 
     def visit_impl(self, impl):
+        self.scope = {**impl["_scope"], **self.consts}
         self.impl_type = impl["type"]
         header = self.impl_type.upper()
         file = self.impl_type.lower()
@@ -32,13 +32,7 @@ class Emit_C_Repr(Walker):
         self.module_function_body = ""
         self.struct_decl = f"struct {self.impl_type}\n{{\n"
 
-        before_inits = len(self.init)
         self.walk(impl)
-        after_inits = len(self.init)
-
-        inits = []
-        for _ in range(after_inits - before_inits):
-            inits.append(self.init.pop())
         
         m = ""
         m += f"#include \"{file}.h\"\n"
@@ -50,10 +44,6 @@ class Emit_C_Repr(Walker):
         m += self.static_functions
         m += f"void module_{file}(struct {self.impl_type}* self)\n"
         m += "{\n"
-        for init in reversed(inits):
-            m += init
-        if len(inits) > 0:
-            m += "\n"
         m += self.module_function_body
         m += "}\n\n"
         
@@ -98,10 +88,9 @@ class Emit_C_Repr(Walker):
     def visit_const(self, var):
         expr = var["expr"]
         const_name = var["name"].upper()
-        mod_name = self.impl_type.upper()
-        name = f"{mod_name}_{const_name}"
+        const_type = var["type"].upper()
         value = expr["val"]
-        v = f"#define {name} {value}\n"
+        v = f"#define {const_name} {const_type}({value})\n"
         if var["public"]:
             self.public_macros += v
         else:
@@ -126,21 +115,12 @@ class Emit_C_Repr(Walker):
         
         self.mod_name = mod_name
         self.connections = []
-
-        before_inits = len(self.init)
         self.walk(mod)
-        after_inits = len(self.init)
-
-        inits = []
-        for _ in range(after_inits - before_inits):
-            inits.append(self.init.pop())
         
         proto = f"static void process_{mod_name}(struct {self.impl_type}* self)"
 
         s  = f"{proto}\n"
         s +=  "{\n"
-        for init in reversed(inits):
-            s += init
         s += f"    struct {mod_type}* {mod_name} = &(self->{mod_name});\n\n"
         for name, expr in self.connections:
             s += f"    {mod_name}->{name} = {expr};\n"
@@ -165,37 +145,26 @@ class Emit_C_Repr(Walker):
         self.expr.append(str(literal["val"]))
 
     def visit_var_ref(self, ref):
-        name = ref["name"]
-        self.expr.append(f"self->{name}")
+        ref_name = ref["name"]
+        var = self.scope[ref_name]
+        if var["tag"] == "const":
+            self.expr.append(ref_name.upper())
+        else:
+            self.expr.append(f"self->{ref_name}")
 
     def visit_mod_ref(self, ref):
         module = ref["module"]
         name = ref["name"]
         self.expr.append(f"self->{module}.{name}")
 
-    def visit_const_ref(self, ref):
-        ref_module = ref["module"]
-        ref_name = ref["name"]
-        ref_type = ref["type"]
-        ref_init_name = f"{ref_module.lower()}_{ref_name.lower()}"
-        ref_macro_name = f"{ref_module.upper()}_{ref_name.upper()}"
-        self.init.append(f"    {ref_type} {ref_init_name} = CONST({ref_macro_name});\n")
-        self.expr.append(ref_init_name)
-
     def visit_op(self, op):
-        before_inits = len(self.init)
         before_exprs = len(self.expr)
         self.walk(op)
         after_exprs = len(self.expr)
-        after_inits = len(self.init)
 
         argv = []
         for _ in range(after_exprs - before_exprs):
             argv.append(self.expr.pop())
-        
-        inits = []
-        for _ in range(after_inits - before_inits):
-            inits.append(self.init.pop())
         
         op_name = op["name"]
         op_type = op["type"]
@@ -209,8 +178,6 @@ class Emit_C_Repr(Walker):
             proto = f"static {op_type} {e}(struct {self.impl_type}* self)"
             s  = f"{proto}\n"
             s +=  "{\n"
-            for init in reversed(inits):
-                s += init
             s += f"    {arg_type} argv[] =\n"
             s +=  "    {\n"
             for arg in reversed(argv):

@@ -18,7 +18,7 @@ def write(path,s):
     f.close()
 
 src = read(sys.argv[1])
-grammar = read("lang/sgdl.lark")
+grammar = read("lang/flux.lark")
 
 parser = Lark(grammar)
 tree = parser.parse(src)
@@ -41,5 +41,6 @@ for phase in phases:
         phase.go(top)
     except GrammarError as e:
         print(e)
+        break
 
 # print(json.dumps(top,indent=4))

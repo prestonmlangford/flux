@@ -25,8 +25,7 @@ class Parser(Transformer):
     def r_literal(self, items):
         return {
             "tag"  : "literal",
-            "type" : str(items[0]),
-            "val"  : int(items[1])
+            "val"  : int(items[0])
         }
 
     def r_mod_reference(self,items):
@@ -40,13 +39,6 @@ class Parser(Transformer):
         return {
             "tag"  : "var_ref",
             "name" : str(items[0])
-        }
-
-    def r_namespace(self,items):
-        return {
-            "tag"  : "const_ref",
-            "module" : str(items[0]),
-            "name" : str(items[1])
         }
 
     def r_op_args(self,items):

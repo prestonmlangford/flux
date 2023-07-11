@@ -15,15 +15,14 @@ r_tag_mod: "mod"
 r_tag_decl: "decl"
 r_tag_impl: "impl"
 
-r_literal: CNAME "(" INT ")"
+r_literal: INT
 r_mod_reference: CNAME "." CNAME*
 r_var_reference: CNAME
-r_namespace: CNAME "::" CNAME
 
 r_op_args: _expression ("," _expression)*
 r_op: CNAME "(" r_op_args* ")"
 
-_expression: r_mod_reference | r_var_reference | r_op | r_literal | r_namespace
+_expression: r_mod_reference | r_var_reference | r_op | r_literal
 
 r_val_size: ["[" INT "]"]
 r_val_expr: ["=" _expression]

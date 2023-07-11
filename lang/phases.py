@@ -5,11 +5,23 @@ class GrammarError(Exception): pass
 def none(thing): return thing is None
 def some(thing): return not none(thing)
 
+const_true = {'tag': 'const', 
+              'type': 'boolean', 
+              'name': 'TRUE',
+              'size': None, 
+              'expr': None}
+
+const_false = {'tag': 'const', 
+              'type': 'boolean', 
+              'name': 'FALSE',
+              'size': None, 
+              'expr': None}
+
 class Build_Decl_Scope(Walker):
     def go(top):
         w = Build_Decl_Scope()
         w.decls = {}
-        w.consts = {}
+        w.consts = {"TRUE": const_true,"FALSE":const_false}
         top["_decls"] = w.decls
         top["_consts"] = w.consts
         w.walk(top)
@@ -42,8 +54,7 @@ class Build_Decl_Scope(Walker):
     def visit_const(self,var):
         if some(var["expr"]):
             raise GrammarError("Expressions are not allowed for module declarations")
-        const_name = var["name"]
-        name = f"{self.decl_name}::{const_name}"
+        name = var["name"]
         self.consts[name] = var
 
 class Build_Impl_Scope(Walker):
@@ -73,9 +84,9 @@ class Build_Impl_Scope(Walker):
 
     def visit_const(self, var):
         name = var["name"]
-        key = f"{self.mod_type}::{name}"
-        var["public"] = key in self.consts
-        self.scope[key] = var
+        var["public"] = name in self.consts
+        var["module"] = self.mod_type
+        self.scope[name] = var
 
     def visit_mod(self, mod):
         self.mod_type = mod["type"]
@@ -106,7 +117,7 @@ class Build_Impl_Scope(Walker):
 class Validate_References(Walker):
     def go(top):
         w = Validate_References()
-        w.public_consts = top["_consts"]
+        w.consts = top["_consts"]
         w.walk(top)
 
     def visit_decl(self, node):
@@ -120,11 +131,13 @@ class Validate_References(Walker):
 
     def visit_var_ref(self, ref):
         name = ref["name"]
-
         try:
             var = self.scope[name]
         except:
-            raise GrammarError(f"Undeclared reference to {name}")
+            try:
+                var = self.consts[name]
+            except:
+                raise GrammarError(f"Undeclared reference to {name}")
 
         ref["type"] = var["type"]
         ref["size"] = var["size"]
@@ -138,26 +151,6 @@ class Validate_References(Walker):
             var = self.scope[key]
         except:
             raise GrammarError(f"Undeclared reference to {key}")
-
-        ref["type"] = var["type"]
-        ref["size"] = var["size"]
-
-    def visit_const_ref(self, ref):
-        module = ref["module"]
-        if module == "this":
-            module = self.mod_type
-            ref["module"] = module
-
-        name = ref["name"]
-        key = f"{module}::{name}"
-
-        try:
-            var = self.scope[key]
-        except:
-            try:
-                var = self.public_consts[key]
-            except:
-                raise GrammarError(f"Undeclared reference to {key}")
 
         ref["type"] = var["type"]
         ref["size"] = var["size"]
@@ -367,10 +360,52 @@ class Infer_Op_Types(Walker):
     def visit_lte(self, op):
         self.binary_bool(op, self.SU)
 
-    def visit_cast(self,op):
-        op["type"] = "PMLFIXME"
-        op["arg_type"] = "PMLFIXME"
+    def visit_boolean(self,op):
+        print(op)
+
+    def visit_cast(self, op):
+        args = op["args"]
+        arg = args[0]
+        arg_type = arg["type"]
+        if arg_type == "boolean":
+            raise GrammarError("Casts from boolean are not allowed. Use a mux instead.")
+        op["type"] = op["name"]
+        op["name"] = arg_type
+        op["arg_type"] = arg_type
         op["nary"] = False
+
+    def visit_f32(self,op):
+        self.visit_cast(op)
+
+    def visit_f64(self,op):
+        self.visit_cast(op)
+
+    def visit_i8(self,op):
+        self.visit_cast(op)
+
+    def visit_i16(self,op):
+        self.visit_cast(op)
+
+    def visit_i32(self,op):
+        self.visit_cast(op)
+
+    def visit_i64(self,op):
+        self.visit_cast(op)
+
+    def visit_u8(self,op):
+        self.visit_cast(op)
+
+    def visit_u16(self,op):
+        self.visit_cast(op)
+
+    def visit_u32(self,op):
+        self.visit_cast(op)
+
+    def visit_u64(self,op):
+        self.visit_cast(op)
+
+    def visit_boolean(self,op):
+        raise GrammarError("Casts to boolean are not allowed")
 
     def visit_op(self,op):
 
