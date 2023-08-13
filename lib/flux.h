@@ -57,6 +57,7 @@ SIGNAL_DECL(boolean, bool);
 #define F32_INVALID SIGNAL_LITERAL(f32)
 
 #define BOOLEAN_INVALID SIGNAL_LITERAL(boolean)
+#define IS_TRUE(b) (b.value && b.valid)
 
 #include "ops/lte.h"
 #include "ops/neg.h"

@@ -1,14 +1,22 @@
 SHELL := bash
+FLUX := ../..
 ROOT := $(PWD)
-BLD := $(ROOT)/build
+OBJ := $(ROOT)/obj
+MOD := $(ROOT)/mod
 SRC := $(ROOT)/src
 COV := $(ROOT)/coverage
 OUT := bin
-CC := export CC="gcc"; export CPP="gcc -E"; python -m acc
-# CC := gcc
+CPP := gcc -E -P
+CC := gcc
+FC := python $(FLUX)/lang/main.py
 LD := ld
-INC := -I../libasync
-OBJ = $(call rwildcard,$(BLD),*.o)
+INC := -I$(FLUX)/lib -I$(ROOT) -I$(SRC)
+MODS := $(wildcard $(MOD)/*.m)
+SRCS := $(subst $(MOD),$(SRC),$(patsubst %.m,%.c,$(MODS)))
+OBJS := $(subst $(SRC),$(OBJ),$(patsubst %.c,%.o,$(SRCS)))
+
+# utility functions
+skeleton=cd $(1); rsync -a --include='*/' --exclude='*' . $(2)
 
 CFLAGS =
 # CFLAGS += -fprofile-arcs
@@ -18,35 +26,41 @@ CFLAGS += -g
 CFLAGS += -Wall
 
 LDFLAGS :=
-LDFLAGS += -lasync
-LDFLAGS += -L../libasync
+LDFLAGS += -lflux
+LDFLAGS += -L$(FLUX)/lib
 
-# utility macros
-getdir=$(dir $(filter %/$(strip $(1)).mk, $(MAKEFILE_LIST)))
-objects=$(patsubst %.c,$(BLD)/$(subst $(SRC)/,,$(call getdir, $(1)))%.o,$(2))
-rwildcard=$(foreach d,$(wildcard $(1:=/*)),$(call rwildcard,$d,$2) $(filter $(subst *,%,$2),$d))
+bin: $(OBJ)
+	@$(CC) tick.c main.c $(OBJS) -o $(OUT) $(LDFLAGS) $(CFLAGS) $(INC)
 
-include $(call rwildcard,$(SRC),*.mk)
+all: src obj bin
 
-bin: main
-	@$(CC) $(OBJ) -o $(OUT) $(LDFLAGS)
+src_dir:
+	@$(call skeleton,$(MOD),$(SRC))
 
-all: build main
+src: src_dir $(SRCS)
 
-$(BLD)/%.o: $(SRC)/%.c
+obj_dir:
+	@$(call skeleton,$(SRC),$(OBJ))
+
+obj: obj_dir $(OBJS)
+
+$(OBJ)/%.o: $(SRC)/%.c
 	@$(CC) -c -o $@ $< $(CFLAGS) $(INC)
 
-run:
-	@$(ROOT)/$(OUT)
+$(SRC)/%.c: $(MOD)/%.m
+	@echo "Makefile rule $@ $<"
+	@$(CPP) -c -o tmp $< $(CFLAGS) $(INC)
+	@$(FC) tmp $@
+	@ rm tmp
 
 clean:
 	@rm -f $(OUT)
-	@rm -rf $(BLD)
-	@rm -rf $(COV)
-	@rm -f *.zip
-	@INCLUDE=
+	@rm -rf $(OBJ)
+	@rm -rf $(SRC)
 
-build: clean
-	@cd $(SRC); rsync -a --include='*/' --exclude='*' . $(BLD)
 
+dbg: FORCE
+	@echo $(MODS)
+
+FORCE: ;
 .PHONY: all test clean coverage
