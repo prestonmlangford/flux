@@ -1,1 +1,0 @@
-python lang/main.py modules/thermal_monitor.m
