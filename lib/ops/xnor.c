@@ -1,11 +1,11 @@
 #include "flux.h"
-#include "and.h"
+#include "xnor.h"
 
-u8 u8_and(size_t argc, u8 argv[])
+u8 u8_xnor(size_t argc, u8 argv[])
 {
     u8 result = {};
     uint8_t product = UINT8_MAX;
-    bool okay = (argc > 0U) && (argv != NULL);
+    bool okay = (argc > 1U) && (argv != NULL);
     size_t i = 0U;
     
     if (okay)
@@ -16,25 +16,25 @@ u8 u8_and(size_t argc, u8 argv[])
 
             if (okay)
             {
-                product = product & argv[i].value;
+                product = product ^ argv[i].value;
             }
         }
     }
 
     if (okay)
     {
-        result.value = product;
+        result.value = ~product;
         result.valid = true;
     }
 
     return result;
 }
 
-u16 u16_and(size_t argc, u16 argv[])
+u16 u16_xnor(size_t argc, u16 argv[])
 {
     u16 result = {};
     uint16_t product = UINT16_MAX;
-    bool okay = (argc > 0U) && (argv != NULL);
+    bool okay = (argc > 1U) && (argv != NULL);
     size_t i = 0U;
     
     if (okay)
@@ -45,25 +45,25 @@ u16 u16_and(size_t argc, u16 argv[])
 
             if (okay)
             {
-                product = product & argv[i].value;
+                product = product ^ argv[i].value;
             }
         }
     }
 
     if (okay)
     {
-        result.value = product;
+        result.value = ~product;
         result.valid = true;
     }
 
     return result;
 }
 
-u32 u32_and(size_t argc, u32 argv[])
+u32 u32_xnor(size_t argc, u32 argv[])
 {
     u32 result = {};
     uint32_t product = UINT32_MAX;
-    bool okay = (argc > 0U) && (argv != NULL);
+    bool okay = (argc > 1U) && (argv != NULL);
     size_t i = 0U;
     
     if (okay)
@@ -74,25 +74,25 @@ u32 u32_and(size_t argc, u32 argv[])
 
             if (okay)
             {
-                product = product & argv[i].value;
+                product = product ^ argv[i].value;
             }
         }
     }
 
     if (okay)
     {
-        result.value = product;
+        result.value = ~product;
         result.valid = true;
     }
 
     return result;
 }
 
-u64 u64_and(size_t argc, u64 argv[])
+u64 u64_xnor(size_t argc, u64 argv[])
 {
     u64 result = {};
     uint64_t product = UINT64_MAX;
-    bool okay = (argc > 0U) && (argv != NULL);
+    bool okay = (argc > 1U) && (argv != NULL);
     size_t i = 0U;
     
     if (okay)
@@ -103,27 +103,27 @@ u64 u64_and(size_t argc, u64 argv[])
 
             if (okay)
             {
-                product = product & argv[i].value;
+                product = product ^ argv[i].value;
             }
         }
     }
 
     if (okay)
     {
-        result.value = product;
+        result.value = ~product;
         result.valid = true;
     }
 
     return result;
 }
 
-boolean boolean_and(size_t argc, boolean argv[])
+boolean boolean_xnor(size_t argc, boolean argv[])
 {
     boolean result = {};
     bool product = true;
     bool okay = (argc > 1U) && (argv != NULL);
     size_t i = 0U;
-
+    
     if (okay)
     {
         for (i = 0U; i < argc; i++)
@@ -132,7 +132,7 @@ boolean boolean_and(size_t argc, boolean argv[])
 
             if (okay)
             {
-                product = product && argv[i].value;
+                product = product == argv[i].value;
             }
         }
     }

@@ -1,3 +1,4 @@
+import sys
 from walk import Walker
 
 class Emit_C_Repr(Walker):
@@ -6,6 +7,7 @@ class Emit_C_Repr(Walker):
         w.consts = top["_consts"]
         w.eval_name = ""
         w.expr = []
+        w.includes = []
 
         w.walk(top)
     
@@ -16,7 +18,7 @@ class Emit_C_Repr(Walker):
         return self.path_depth
     
     def visit_decl(self, node):
-        # decl info only used to verify grammar rules are met
+        self.includes.append(node["type"])
         pass
 
     def visit_impl(self, impl):
@@ -35,8 +37,7 @@ class Emit_C_Repr(Walker):
         self.walk(impl)
         
         m = ""
-        m += f"#include \"{file}.h\"\n"
-        m += f"#include \"ops.h\"\n\n"
+        m += f"#include \"{file}.h\"\n\n"
         m += self.private_macros
         m += "\n"
         m += self.static_declarations
@@ -51,17 +52,26 @@ class Emit_C_Repr(Walker):
         self.struct_decl += "};\n\n"
         h =  f"#ifndef {header}_H\n"
         h += f"#define {header}_H\n"
-        h += "#include \"types.h\"\n\n"
+        h += "#include \"flux.h\"\n"
+        for include in self.includes:
+            inc = include.lower()
+            h += f"#include \"{inc}.h\"\n"
+        h += "\n"
         h += self.public_macros
         h += "\n"
         h += self.struct_decl
+        h += f"void module_{file}(struct {self.impl_type}* self);\n"
         h += f"#endif /* {header}_H */\n"
         
-        f = open(f"out/{file}.c",'w')
+        path = sys.argv[2]
+        m_path = path
+        h_path = path.replace(".c",".h")
+        
+        f = open(m_path,'w')
         f.write(m)
         f.close()
 
-        f = open(f"out/{file}.h",'w')
+        f = open(h_path,'w')
         f.write(h)
         f.close()
 
@@ -168,7 +178,11 @@ class Emit_C_Repr(Walker):
         
         op_name = op["name"]
         op_type = op["type"]
-        op_func = f"{op_type}_{op_name}"
+        try:
+            op_func = op["func"]
+        except:
+            print(op)
+            raise RuntimeError("help")
 
         if op["nary"]:    
             e = self.eval_func_name()

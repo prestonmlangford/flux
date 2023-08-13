@@ -1,6 +1,6 @@
-decl Sbm
+decl Card
 {
-    const u32 SBM_ADDR_THERMAL;
+    const u32 CARD_ADDR_THERMAL;
     const i32 XA01;
 
     in i32 id;
@@ -12,6 +12,8 @@ decl Sbm
     in boolean write;
     in u32 wval;
 };
+
+func u32 card_read(i32 id, u32 addr);
 
 decl Ticker
 {
@@ -132,7 +134,7 @@ impl Thermal_Monitor
 {
     const u32 THERMAL_REG_MASK = 12345;
     const f32 TEMPERATURE_SCALE = 123;
-    const f32 STATUS_PERIOD = 10;
+    const u64 STATUS_PERIOD = 10;
     const f32 JITTER_TOLERANCE = 5;
 
     in bool reset;
@@ -142,8 +144,8 @@ impl Thermal_Monitor
         .period_ms = STATUS_PERIOD
     };
 
-    mod Sbm thermal = {
-        .address = SBM_ADDR_THERMAL,
+    mod Card thermal = {
+        .address = CARD_ADDR_THERMAL,
         .id = XA01,
         .read = poll_100hz.signal
     };

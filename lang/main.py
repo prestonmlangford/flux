@@ -5,6 +5,10 @@ from parser import Parser
 from phases import *
 from c_repr import *
 import json
+import pathlib
+
+here = pathlib.Path(__file__).parent.resolve()
+
 
 def read(path):
     f = open(path,'r')
@@ -18,7 +22,7 @@ def write(path,s):
     f.close()
 
 src = read(sys.argv[1])
-grammar = read("lang/flux.lark")
+grammar = read(os.path.join(here,"flux.lark"))
 
 parser = Lark(grammar)
 tree = parser.parse(src)

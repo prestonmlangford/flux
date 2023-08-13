@@ -168,7 +168,7 @@ class Infer_Op_Types(Walker):
     mul(fsu...) -> fsu
     div(fsu,fsu) -> fsu
     rem(su,su) -> su
-    neg(fsu) -> fsu
+    neg(fs) -> fs
     and(bu...) -> bu
     nand(bu...) -> bu
     or(bu...) -> bu
@@ -238,6 +238,8 @@ class Infer_Op_Types(Walker):
             if op_type != _op_type:
                 raise GrammarError(f"Mismatched types ({op_type} and {_op_type}) in op sum")
 
+        op_name = op["name"]
+        op["func"] = f"{op_type}_{op_name}"
         op["type"] = op_type
         op["arg_type"] = op_type
         op["nary"] = True
@@ -255,6 +257,8 @@ class Infer_Op_Types(Walker):
         if x_type != y_type:
             raise GrammarError(f"Mismatched types ({x_type} and {y_type}) in op sum")
 
+        op_name = op["name"]
+        op["func"] = f"{x_type}_{op_name}"
         op["type"] = x_type
         op["arg_type"] = x_type
         op["nary"] = False
@@ -268,6 +272,8 @@ class Infer_Op_Types(Walker):
         if not (op_type in types):
             raise GrammarError(f"Invalid type {op_type}")
 
+        op_name = op["name"]
+        op["func"] = f"{op_type}_{op_name}"
         op["type"] = op_type
         op["arg_type"] = op_type
         op["nary"] = False
@@ -283,6 +289,8 @@ class Infer_Op_Types(Walker):
             if arg_type != _arg_type:
                 raise GrammarError(f"Mismatched types ({arg_type} and {_arg_type})")
 
+        op_name = op["name"]
+        op["func"] = f"{arg_type}_{op_name}"
         op["type"] = "boolean"
         op["arg_type"] = arg_type
         op["nary"] = True
@@ -297,7 +305,9 @@ class Infer_Op_Types(Walker):
             _arg_type = arg["type"]
             if arg_type != _arg_type:
                 raise GrammarError(f"Mismatched types ({arg_type} and {_arg_type})")
-        
+
+        op_name = op["name"]
+        op["func"] = f"{arg_type}_{op_name}"
         op["type"] = "boolean"
         op["arg_type"] = arg_type
         op["nary"] = False
@@ -369,6 +379,9 @@ class Infer_Op_Types(Walker):
         arg_type = arg["type"]
         if arg_type == "boolean":
             raise GrammarError("Casts from boolean are not allowed. Use a mux instead.")
+        
+        op_type = op["name"]
+        op["func"] = f"{op_type}_{arg_type}"
         op["type"] = op["name"]
         op["name"] = arg_type
         op["arg_type"] = arg_type

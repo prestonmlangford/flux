@@ -2,4 +2,9 @@
 out/*
 *.pyc
 *.log
+*.o
+*.a
+*.DYSM
+bin*
+*.bin
 .vscode

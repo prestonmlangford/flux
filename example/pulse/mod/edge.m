@@ -1,33 +1,32 @@
 // -----------------------------------------------------------------------------
 // Copyright 25 June 2023
 // Author: Preston Langford
-// This module debounces a boolean signal
+// Detects edges on a boolean signal
 // -----------------------------------------------------------------------------
 
-#include "time.h"
 #include "edge.h"
 
 impl Edge
 {
-    in bool reset;
-    in bool input;
-    in bool rising;
+    in boolean reset;
+    in boolean rising;
+    in boolean input;
 
-    var bool on = and(
+    var boolean on = and(
         rising,
         input,
         not(state)
     );
 
-    var bool off = and(
+    var boolean off = and(
         not(rising),
         not(input),
         state
     );
 
-    var bool state = and(input,not(reset));
+    var boolean state = and(input,not(reset));
 
-    out bool output = and(
+    out boolean output = and(
         or(on,off),
         not(reset)
     );
