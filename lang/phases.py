@@ -370,8 +370,29 @@ class Infer_Op_Types(Walker):
     def visit_lte(self, op):
         self.binary_bool(op, self.SU)
 
+    def visit_mux(self,op):
+        args = op["args"]
+        if len(args) != 3:
+            raise GrammarError(f"Need three arguments")
+
+        s_type = args[0]["type"]
+        a_type = args[1]["type"]
+        b_type = args[2]["type"]
+        if not (s_type == "boolean"):
+            raise GrammarError(f"Invalid type {s_type}")
+
+        if a_type != b_type:
+            raise GrammarError(f"Mismatched types ({a_type} and {b_type}) in op mux")
+
+        op_name = op["name"]
+        op["func"] = f"{a_type}_{op_name}"
+        op["type"] = a_type
+        op["arg_type"] = a_type
+        op["nary"] = False
+
     def visit_boolean(self,op):
         print(op)
+    
 
     def visit_cast(self, op):
         args = op["args"]

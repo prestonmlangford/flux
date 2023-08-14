@@ -4,7 +4,7 @@ out/*
 *.log
 *.o
 *.a
-*.DYSM
+*.dYSM
 bin*
 *.bin
 .vscode

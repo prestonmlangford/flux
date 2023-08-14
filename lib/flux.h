@@ -78,5 +78,6 @@ SIGNAL_DECL(boolean, bool);
 #include "ops/xnor.h"
 #include "ops/nand.h"
 #include "ops/and.h"
+#include "ops/mux.h"
 
 #endif /* TYPES_H */
